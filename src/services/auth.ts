@@ -1,16 +1,5 @@
 import { auth } from './api';
 
-interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
-}
-
 interface LoginCredentials {
   email: string;
   password: string;
@@ -19,13 +8,13 @@ interface LoginCredentials {
 export const login = async (credentials: LoginCredentials) => {
   try {
     const response = await auth.login(credentials);
-    const data = response.data as AuthResponse;
+    const { token, user } = response.data.data;
     
     // Store the token
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
     
-    return data;
+    return { token, user };
   } catch (error) {
     console.error('Login error:', error);
     throw error;
