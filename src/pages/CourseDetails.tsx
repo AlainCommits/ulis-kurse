@@ -1,23 +1,17 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { publicCourses, courses } from "../services/api";
-import type { CourseData, UserData } from "../services/api";
+import { publicCourses, courses, type CourseData } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
-
-interface CourseDetails extends CourseData {
-  participants?: UserData[];
-}
 
 export function CourseDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
-  const [course, setCourse] = useState<CourseDetails | null>(null);
+  const { isAuthenticated, isAdmin } = useAuth();
+  const [course, setCourse] = useState<CourseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -40,18 +34,23 @@ export function CourseDetails() {
   const handleJoinCourse = async () => {
     if (!id || !isAuthenticated) return;
     
-    setJoining(true);
     try {
       await courses.join(id);
-      // Kurs neu laden um aktualisierte Teilnehmerzahl zu sehen
+      // Kurs neu laden um Teilnehmerliste zu aktualisieren
       const response = await publicCourses.getById(id);
       setCourse(response.data.data.course);
     } catch (err) {
       setError("Fehler beim Beitreten des Kurses");
       console.error(err);
-    } finally {
-      setJoining(false);
     }
+  };
+
+  const formatParticipantName = (firstName: string, lastName: string) => {
+    if (isAdmin) {
+      return `${firstName} ${lastName}`;
+    }
+    // Nur erste Buchstaben des Vor- und Nachnamens
+    return `${firstName.charAt(0)}. ${lastName.charAt(0)}.`;
   };
 
   if (loading) {
@@ -109,42 +108,39 @@ export function CourseDetails() {
 
             {isAuthenticated && (
               <Button 
-                className="w-full mt-4" 
+                className="w-full mt-4"
                 onClick={handleJoinCourse}
-                disabled={joining}
               >
-                {joining ? "Wird beigetreten..." : "Kurs beitreten"}
+                Kurs beitreten
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {course.participants && (
+      {course.participants && course.participants.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Teilnehmer</CardTitle>
           </CardHeader>
           <CardContent>
-            {course.participants.length > 0 ? (
-              <div className="space-y-2">
-                {course.participants.map(participant => (
-                  <div 
-                    key={participant._id}
-                    className="flex justify-between items-center p-2 hover:bg-muted rounded-lg"
-                  >
-                    <span>{participant.firstName} {participant.lastName}</span>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link to={`/dashboard/teilnehmer/${participant._id}`}>
-                        Details
-                      </Link>
+            <div className="space-y-2">
+              {course.participants.map((participant) => (
+                <div 
+                  key={participant._id}
+                  className="flex items-center justify-between py-2"
+                >
+                  <span>
+                    {formatParticipantName(participant.firstName, participant.lastName)}
+                  </span>
+                  {isAdmin && (
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/dashboard/teilnehmer/${participant._id}`)}>
+                      Details
                     </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">Noch keine Teilnehmer.</p>
-            )}
+                  )}
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
